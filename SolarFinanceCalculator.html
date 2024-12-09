@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar PV Calculator and Financial Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .main-content {
+            display: flex;
+            justify-content: space-between;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .image-container {
+            max-width: 600px;
+            margin: 20px;
+        }
+        .result {
+            margin-top: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 24px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 24px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+   <div class="main-content">
+        <div class="container">
+            <h1>Solar PV Generation Calculator</h1>
+            <form id="solarForm">
+                <label for="irradiance">Solar Irradiance (kWh/m² per annum):</label>
+                <input type="number" id="irradiance" required>
+                <label for="roofSize">Roof Size (m²):</label>
+                <input type="number" id="roofSize" required>
+                <label for="moduleSize">Choose Solar Module:</label>
+                <select id="moduleSize">
+                    <option value='1.7,400'>Domestic Type 1.6m² - 400Wp</option>
+                    <option value='1.9,500'>Commercial Type 1.9m² - 500Wp</option>
+                </select>
+                <button type="button" onclick="calculate()">Calculate</button>
+            </form>
+            <div class="result" id="pvResult"></div>
+        </div>
+        <div class="image-container">
+            <h1>Solar Installation Financial Analysis</h1>
+            <div>
+                <label for="initialCost">Cost of your PV installation (Enter in £):</label>
+                <input type="number" id="initialCost">
+            </div>
+            <div>
+                <label for="annualEnergyProduction">Estimated solar energy production per annum (kWh/year):</label>
+                <input type="number" id="annualEnergyProduction">
+            </div>
+            <div>
+                <label for="energyPrice">Price of electricity from your energy supplier (Enter as £ per kWh):</label>
+                <input type="number" id="energyPrice">
+            </div>
+            <div>
+                <label for="years">Lifespan of your solar PV system (usually 25 years):</label>
+                <input type="number" id="years">
+            </div>
+            <div>
+                <label for="annualConsumption">Your property's annual consumption(kWh/year):</label>
+                <input type="number" id="annualConsumption">
+            </div>
+            <button onclick="calculateAndPlot()">Calculate and Plot Results</button>
+            <p id="resultText"></p>
+            <canvas id="cashFlowChart" width="400" height="200"></canvas>
+        </div>
+    </div>
+    <img src="https://img1.wsimg.com/isteam/ip/9d90a350-493c-4519-80ac-ded3b22ce1e7/United_Kingdom_GHI_Solar-resource-map_GlobalSo.png/:/" alt="By © The World Bank, Source: Global Solar Atlas 2.0, Solar resource data: Solargis, CC BY 4.0, https://commons.wikimedia.org/w/index.php?curid=15486481" class="image-container">
+    <script>
+        function calculate() {
+            const irradiance = parseFloat(document.getElementById('irradiance').value);
+            const roofSize = parseFloat(document.getElementById('roofSize').value);
+            const [moduleArea, moduleWp] = document.getElementById('moduleSize').value.split(',').map(parseFloat);
+            const numberOfModules = Math.floor(roofSize / moduleArea);
+            const systemSizeWp = numberOfModules * moduleWp;
+            const systemSizeKw = systemSizeWp / 1000;
+            const annualOutput = systemSizeKw * irradiance;
+            document.getElementById('pvResult').innerHTML = `
+                <h2>Results:</h2>
+                <p>Number of Solar Modules: ${numberOfModules}</p>
+                <p>System Size: ${systemSizeWp} Wp (${systemSizeKw} kW)</p>
+                <p>Estimated Annual Output: ${annualOutput.toFixed(2)} kWh</p>
+            `;
+            // Automatically fill estimated annualProduction for financial analysis
+            document.getElementById('annualEnergyProduction').value = annualOutput.toFixed(2);
+        }
+        function calculateAndPlot() {
+            var initialCost = parseFloat(document.getElementById('initialCost').value);
+            var annualEnergyProduction = parseFloat(document.getElementById('annualEnergyProduction').value);
+            var energyPrice = parseFloat(document.getElementById('energyPrice').value);
+            var years = parseInt(document.getElementById('years').value);
+            var annualConsumption = parseFloat(document.getElementById('annualConsumption').value);
+            if (isNaN(initialCost) || isNaN(annualEnergyProduction) || isNaN(energyPrice) || isNaN(years) || isNaN(annualConsumption)) {
+                document.getElementById('resultText').innerText = "Invalid Input: Please enter valid numerical values.";
+                return;
+            }
+            var annualSavings = [];
+            for (var year = 0; year < years; year++) {
+                annualSavings.push(annualEnergyProduction * energyPrice);
+            }
+            var cashFlows = [-initialCost].concat(annualSavings);
+            var cumulativeCashFlow = [];
+            var cumulative = 0;
+            for (var i = 0; i < cashFlows.length; i++) {
+                cumulative += cashFlows[i];
+                cumulativeCashFlow.push(cumulative);
+            }
+            var paybackPeriod = cumulativeCashFlow.findIndex(function(cashFlow) {
+                return cashFlow > 0;
+            });
+            var totalEarnings = annualSavings.reduce(function(a, b) {
+                return a + b;
+            }, 0);
+            var roi = (totalEarnings - initialCost) / initialCost * 100;
+            var optimumPvSize = annualConsumption / annualEnergyProduction;
+            var resultText = `Total Earnings over ${years} years: £${totalEarnings.toFixed(2)}\n`;
+            resultText += `Payback Period: ${paybackPeriod} years\n`;
+            resultText += `Return on Investment (ROI): ${roi.toFixed(2)}%\n`;
+            document.getElementById('resultText').innerText = resultText;
+            var ctx = document.getElementById('cashFlowChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({ length: years + 1 }, (_, i) => i),
+                    datasets: [{
+                        label: 'Cumulative Cash Flow',
+                        data: cumulativeCashFlow,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        fill: true,
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)'
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Years'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Cash Flow (£)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
